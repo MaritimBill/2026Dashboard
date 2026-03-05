@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PEM Electrolyzer Dashboard - KNH O₂ Control System</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+  <div id="app" class="dashboard">
+    
+    <!-- Header -->
+    <header class="dashboard-header">
+      <div class="header-content">
+        <div class="header-title">
+          <h1>⚡ PEM Electrolyzer Control System</h1>
+          <p>Kenyatta National Hospital O₂ Production & Data Lifecycle Management</p>
+        </div>
+        <div class="header-status">
+          <div class="status-item">
+            <span class="status-label">MQTT Broker:</span>
+            <span id="mqtt-status" class="status-value status-offline">OFFLINE</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Active Model:</span>
+            <span id="model-version" class="status-value">v1.0</span>
+          </div>
+        </div>
+      </div>
+    </header>
+    
+    <!-- Navigation Tabs -->
+    <nav class="dashboard-nav">
+      <button class="tab-btn active" onclick="switchTab('overview')">📊 Overview</button>
+      <button class="tab-btn" onclick="switchTab('models')">🔬 Model Versions</button>
+      <button class="tab-btn" onclick="switchTab('monitoring')">⚠️ Error Monitoring</button>
+      <button class="tab-btn" onclick="switchTab('upload')">📤 Upload Data</button>
+      <button class="tab-btn" onclick="switchTab('export')">📥 Export</button>
+      <button class="tab-btn" onclick="switchTab('control')">🎮 Live Control</button>
+    </nav>
+    
+    <!-- ========== TAB 1: OVERVIEW ========== -->
+    <section id="tab-overview" class="tab-content active">
+      
+      <div class="overview-grid">
+        <!-- Active Model Card -->
+        <div class="card card-large">
+          <h2>🔬 Active PEM Model (Liso et al. 2018)</h2>
+          <div class="model-info">
+            <div class="info-row">
+              <span class="label">Version:</span>
+              <span id="active-version" class="value value-primary">v1.0</span>
+            </div>
+            <div class="info-row">
+              <span class="label">RMSE (60°C):</span>
+              <span id="active-rmse" class="value">0.058V</span>
+            </div>
+            <div class="info-row">
+              <span class="label">MAPE:</span>
+              <span id="active-mape" class="value">4.8%</span>
+            </div>
+            <div class="info-row">
+              <span class="label">O₂ Purity:</span>
+              <span id="active-purity" class="value value-success">99.8%</span>
+            </div>
+            <div class="info-row">
+              <span class="label">R² Score:</span>
+              <span id="active-r2" class="value">0.902</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Deployed:</span>
+              <span id="active-date" class="value">2026-03-05</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- System Status Card -->
+        <div class="card card-large">
+          <h2>⚠️ System Alerts & Status</h2>
+          <div id="status-alerts" class="alerts">
+            <div id="retraining-flag" class="alert alert-danger" style="display:none;">
+              <span class="alert-icon">🔔</span>
+              <div>
+                <strong>RETRAINING NEEDED</strong>
+                <p>7-day error exceeds 15% threshold. Run MATLAB retraining with new data.</p>
+              </div>
+            </div>
+            <div id="water-alert" class="alert alert-warning" style="display:none;">
+              <span class="alert-icon">💧</span>
+              <div>
+                <strong>Low Water Level</strong>
+                <p>Tank <1000L remaining. Schedule refill soon.</p>
+              </div>
+            </div>
+            <div id="mqtt-alert" class="alert alert-info" style="display:none;">
+              <span class="alert-icon">📡</span>
+              <div>
+                <strong>MQTT Disconnected</strong>
+                <p>Cannot receive Arduino telemetry. Check broker connection.</p>
+              </div>
+            </div>
+            <div class="alert alert-success" style="display:block;">
+              <span class="alert-icon">✓</span>
+              <div>
+                <strong>System Nominal</strong>
+                <p>All systems operational. Model accuracy within acceptable range.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- PEM Physics Parameters Card -->
+        <div class="card">
+          <h2>⚙️ PEM Physics Coefficients (Calibrated)</h2>
+          <div class="physics-params">
+            <div class="param-row">
+              <span class="param-label">a_act (Tafel constant):</span>
+              <span class="param-value">0.10 V</span>
+            </div>
+            <div class="param-row">
+              <span class="param-label">b_act (Tafel slope):</span>
+              <span class="param-value">0.08 V/ln(A/cm²)</span>
+            </div>
+            <div class="param-row">
+              <span class="param-label">R_ohm (Ohmic resistance):</span>
+              <span class="param-value">0.18 Ω·cm²</span>
+            </div>
+            <div class="param-row">
+              <span class="param-label">k_conc (Concentration):</span>
+              <span class="param-value">0.006</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- KNH Parameters Card -->
+        <div class="card">
+          <h2>🏥 KNH Hospital Parameters</h2>
+          <div class="khnh-params">
+            <div class="param-row">
+              <span class="param-label">Base O₂ Demand:</span>
+              <span class="param-value">40 L/min</span>
+            </div>
+            <div class="param-row">
+              <span class="param-label">Morning Peak (6am-12pm):</span>
+              <span class="param-value">× 1.5</span>
+            </div>
+            <div class="param-row">
+              <span class="param-label">Evening Peak (4pm-8pm):</span>
+              <span class="param-value">× 1.3</span>
+            </div>
+            <div class="param-row">
+              <span class="param-label">Tank Capacity:</span>
+              <span class="param-value">10,000 L</span>
+            </div>
+            <div class="param-row">
+              <span class="param-label">Safety Reserve:</span>
+              <span class="param-value">>2,000 L</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Solar Profile Card -->
+        <div class="card">
+          <h2>☀️ Nairobi PV Profile</h2>
+          <div class="solar-params">
+            <div class="param-row">
+              <span class="param-label">Capacity:</span>
+              <span class="param-value">250 kWp</span>
+            </div>
+            <div class="param-row">
+              <span class="param-label">Operating Hours:</span>
+              <span class="param-value">6am - 6pm</span>
+            </div>
+            <div class="param-row">
+              <span class="param-label">Peak Hours:</span>
+              <span class="param-value">10am - 3pm</span>
+            </div>
+            <div class="param-row">
+              <span class="param-label">Shape:</span>
+              <span class="param-value">Bell Curve</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+    </section>
+    
+    <!-- ========== TAB 2: MODEL VERSIONS ========== -->
+    <section id="tab-models" class="tab-content">
+      
+      <div class="card">
+        <h2>📋 Version History (All Archived Models)</h2>
+        <table class="models-table">
+          <thead>
+            <tr>
+              <th>Version</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th>RMSE</th>
+              <th>MAPE</th>
+              <th>R²</th>
+              <th>O₂ Purity</th>
+              <th>Replacement Reason</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="models-table-body">
+            <tr><td colspan="9" style="text-align:center;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="card">
+        <h2>📈 Error Trend Over Versions</h2>
+        <canvas id="error-trend-chart" style="max-height: 300px;"></canvas>
+      </div>
+      
+      <div class="card">
+        <h2>🔍 Model Comparison (Side-by-Side)</h2>
+        <div class="comparison-controls">
+          <select id="compare-v1" class="select-control">
+            <option>Select Model 1</option>
+          </select>
+          <span class="compare-vs">vs</span>
+          <select id="compare-v2" class="select-control">
+            <option>Select Model 2</option>
+          </select>
+          <button onclick="compareModels()" class="btn-primary">Compare</button>
+        </div>
+        <div id="comparison-result" style="margin-top: 20px;"></div>
+      </div>
+      
+    </section>
+    
+    <!-- ========== TAB 3: ERROR MONITORING ========== -->
+    <section id="tab-monitoring" class="tab-content">
+      
+      <div class="card">
+        <h2>📊 7-Day Rolling Average Error Metrics</h2>
+        <div id="rolling-error-info" class="error-metrics">
+          <div class="metric">
+            <span class="metric-label">MAPE</span>
+            <span class="metric-value" id="rolling-mape">--</span>
+            <span class="metric-unit">%</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">RMSE</span>
+            <span class="metric-value" id="rolling-rmse">--</span>
+            <span class="metric-unit">V</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">MAE</span>
+            <span class="metric-value" id="rolling-mae">--</span>
+            <span class="metric-unit">V</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Samples</span>
+            <span class="metric-value" id="rolling-samples">0</span>
+            <span class="metric-unit">count</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h2>📉 Error Distribution Histogram</h2>
+        <canvas id="error-distribution-chart" style="max-height: 300px;"></canvas>
+      </div>
+      
+      <div class="card">
+        <h2>🚨 Retraining Status</h2>
+        <div id="retraining-status" class="retraining-box">
+          <p>Checking error monitoring...</p>
+        </div>
+      </div>
+      
+    </section>
+    
+    <!-- ========== TAB 4: UPLOAD DATA ========== -->
+    <section id="tab-upload" class="tab-content">
+      
+      <div class="card">
+        <h2>📤 Upload New Model Data (MATLAB Retraining)</h2>
+        <p class="section-description">
+          Upload JSON/CSV files from MATLAB retraining. Dashboard will validate against current model 
+          and only approve if: <strong>5% MAPE improvement + p<0.05 + O₂ purity ≥99.5%</strong>
+        </p>
+        
+        <form id="upload-form" class="upload-form">
+          <div class="form-group">
+            <label>Select File (JSON/CSV):</label>
+            <input type="file" id="file-input" accept=".json,.csv" required>
+          </div>
+          
+          <div class="form-group">
+            <label>Upload Reason:</label>
+            <textarea id="upload-reason" placeholder="e.g., MATLAB retraining with new KNH data, +12.5% accuracy improvement..." required></textarea>
+          </div>
+          
+          <button type="submit" class="btn-primary">Validate & Compare</button>
+        </form>
+        
+        <div id="upload-result" style="margin-top: 30px;"></div>
+      </div>
+      
+    </section>
+    
+    <!-- ========== TAB 5: EXPORT ========== -->
+    <section id="tab-export" class="tab-content">
+      
+      <div class="card">
+        <h2>📥 Export Complete Lifecycle History</h2>
+        <p class="section-description">
+          Download complete model lifecycle including ALL archived versions, validation metrics, 
+          error trends, comparison data, and timestamps for thesis/documentation.
+        </p>
+        
+        <div class="export-buttons">
+          <button class="btn-secondary" onclick="exportLifecycle('json')">
+            📄 Export as JSON (All Data)
+          </button>
+          <button class="btn-secondary" onclick="exportLifecycle('csv')">
+            📊 Export as CSV (Tables)
+          </button>
+          <button class="btn-secondary" onclick="exportLifecycle('zip')">
+            📦 Export as ZIP (Full Archive)
+          </button>
+        </div>
+        
+        <div class="export-info">
+          <h3>Export Contents:</h3>
+          <ul>
+            <li>✓ Model registry (all versions + metadata)</li>
+            <li>✓ Error log (7-day & 30-day rolling averages)</li>
+            <li>✓ All archived model files (v1.0, v1.1, v1.2, v2.0, ...)</li>
+            <li>✓ Comparison metrics & improvement percentages</li>
+            <li>✓ PEM physics parameters & validation data</li>
+            <li>✓ Timestamps for each version deployment</li>
+          </ul>
+        </div>
+      </div>
+      
+    </section>
+    
+    <!-- ========== TAB 6: LIVE CONTROL ========== -->
+    <section id="tab-control" class="tab-content">
+      
+      <div class="card">
+        <h2>🎮 Real-Time Arduino Control & Telemetry</h2>
+        <p class="section-description">
+          Monitor live MQTT telemetry from Arduino (arduino/sensors topic). 
+          Send commands: Start, Stop, Set Current, Power Source Selection.
+        </p>
+        
+        <div class="control-grid">
+          <!-- Current Status -->
+          <div class="control-box">
+            <h3>📊 Current System State</h3>
+            <div class="status-display">
+              <div class="status-line">
+                <span>Temperature:</span>
+                <span id="live-temp" class="live-value">-- °C</span>
+              </div>
+              <div class="status-line">
+                <span>Voltage:</span>
+                <span id="live-voltage" class="live-value">-- V</span>
+              </div>
+              <div class="status-line">
+                <span>Current:</span>
+                <span id="live-current" class="live-value">-- A</span>
+              </div>
+              <div class="status-line">
+                <span>O₂ Purity:</span>
+                <span id="live-purity" class="live-value">-- %</span>
+              </div>
+              <div class="status-line">
+                <span>Water Level:</span>
+                <span id="live-water" class="live-value">-- L</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Control Commands -->
+          <div class="control-box">
+            <h3>🎮 Control Commands</h3>
+            <div class="button-group">
+              <button onclick="sendCommand('start')" class="btn-success">▶ START</button>
+              <button onclick="sendCommand('stop')" class="btn-danger">⏹ STOP</button>
+            </div>
+            <div style="margin-top: 15px;">
+              <label>Set Current (A):</label>
+              <div class="input-group">
+                <input type="number" id="current-input" min="50" max="200" value="100" class="input-number">
+                <button onclick="setCurrent()" class="btn-primary">Set</button>
+              </div>
+            </div>
+            <div style="margin-top: 15px;">
+              <label>Power Source:</label>
+              <div class="button-group">
+                <button onclick="setPowerSource('grid')" class="btn-secondary">Grid</button>
+                <button onclick="setPowerSource('solar')" class="btn-secondary">Solar</button>
+                <button onclick="setPowerSource('auto')" class="btn-secondary">Auto</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+    </section>
+    
+  </div>
+  
+  <script src="js/dashboard.js"></script>
+</body>
+</html>
