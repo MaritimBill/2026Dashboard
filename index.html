@@ -3,14 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard</title>
+    <title>PEM Electrolyzer Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="script.js" defer></script>
 </head>
 <body>
-    <h1>Main Pages</h1>
-    <ul>
-        <li><a href="#">Arduino Controller</a></li>
-        <li><a href="#">PEM Electrolyzer Parameters</a></li>
-        <li><a href="#">Comparisons/Performance</a></li>
-    </ul>
+    <nav>
+        <ul>
+            <li><a href="#" onclick="showPage('arduinoController')">Arduino Controller</a></li>
+            <li><a href="#" onclick="showPage('pemParameters')">PEM Electrolyzer Parameters</a></li>
+            <li><a href="#" onclick="showPage('comparisonsPerformance')">Comparisons & Performance</a></li>
+        </ul>
+    </nav>
+    <div id="content">
+        <div id="arduinoController" class="page">
+            <h1>Arduino Controller</h1>
+            <p>Real-time system monitoring and control functionalities will be displayed here.</p>
+            <!-- Additional content and elements for Arduino Controller -->
+        </div>
+        <div id="pemParameters" class="page" style="display:none;">
+            <h1>PEM Electrolyzer Parameters</h1>
+            <p>This page will outline model info, physics parameters, and hospital settings.</p>
+            <!-- Additional content for PEM Electrolyzer Parameters -->
+        </div>
+        <div id="comparisonsPerformance" class="page" style="display:none;">
+            <h1>Comparisons & Performance</h1>
+            <p>Here you will find error metrics, charts for visualizations, and model versions.</p>
+            <!-- Chart.js elements and additional comparison content -->
+        </div>
+    </div>
 </body>
 </html>
